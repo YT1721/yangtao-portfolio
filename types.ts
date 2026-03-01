@@ -6,7 +6,10 @@ export interface Project {
   description: string;
   imageUrl: string;
   tags: string[];
-  galleryImages?: string[]; // 新增：支持多图展示
+  galleryImages?: string[]; // 支持多图展示
+  videoUrl?: string; // 视频链接（Bilibili/YouTube）
+  videoPlatform?: 'bilibili' | 'youtube' | 'other'; // 视频平台类型
+  localVideoUrl?: string; // 本地上传的视频文件URL
 }
 
 export interface Skill {

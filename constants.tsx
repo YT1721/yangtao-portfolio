@@ -111,6 +111,17 @@ export const TRADITIONAL_SKILLS: Skill[] = [
 export const PROJECTS: Project[] = [
   {
     id: "1",
+    title: "AI 视频作品示例",
+    category: "AI 视频",
+    description: "使用 Midjourney 和 Runway 制作的 AI 视频作品，展示未来城市概念。",
+    imageUrl: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&h=800&fit=crop",
+    tags: ["AI", "视频", "概念设计"],
+    galleryImages: [],
+    videoUrl: "https://www.bilibili.com/video/BV1xx411c7mD",
+    videoPlatform: "bilibili"
+  },
+  {
+    id: "2",
     title: "丰收证券 Foison Securities",
     category: "品牌设计",
     description: "全套品牌视觉识别系统设计，包括 LOGO 演绎、空间导视及办公应用。",
@@ -118,7 +129,7 @@ export const PROJECTS: Project[] = [
     tags: ["VIS", "金融行业", "LOGO"]
   },
   {
-    id: "2",
+    id: "3",
     title: "奥陶世卫星公司 Ordovician",
     category: "品牌设计",
     description: "沙特阿拉伯奥陶世卫星公司品牌形象设计，涵盖航天器涂装、办公系统等。",
@@ -126,7 +137,7 @@ export const PROJECTS: Project[] = [
     tags: ["航天科技", "品牌升级"]
   },
   {
-    id: "3",
+    id: "4",
     title: "松果健康 Sungo Health",
     category: "UI/UX",
     description: "智能穿戴设备配对 APP 及 health 管理系统 UI 设计，结合硬件交互体验。",
@@ -134,7 +145,7 @@ export const PROJECTS: Project[] = [
     tags: ["智能硬件", "医疗健康"]
   },
   {
-    id: "4",
+    id: "5",
     title: "同里红 Tongli Red",
     category: "包装设计",
     description: "同里红黄酒高端系列包装及 IP 形象设计，融入江南水乡文化元素。",
@@ -142,7 +153,7 @@ export const PROJECTS: Project[] = [
     tags: ["包装", "非遗文化", "IP"]
   },
   {
-    id: "5",
+    id: "6",
     title: "智能化破产办案辅助平台",
     category: "UI/UX",
     description: "为法院系统打造的大型数字化协作平台，处理复杂法律逻辑与数据流。",
@@ -150,7 +161,7 @@ export const PROJECTS: Project[] = [
     tags: ["政务系统", "数字化协作"]
   },
   {
-    id: "6",
+    id: "7",
     title: "爱丝柏兰图 Esperanto",
     category: "品牌设计",
     description: "滤泡式挂耳咖啡品牌全案设计，包括产品摄影、电商视觉及包装。",

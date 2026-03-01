@@ -11,7 +11,7 @@ import {
   SOFTWARE_SKILLS as DEFAULT_SOFTWARE
 } from './constants';
 import { Project } from './types';
-import { getPersonalInfo, getProjects, savePersonalInfo, saveProjects, uploadImage, deleteImage, isSupabaseConfigured } from './lib/database';
+import { getPersonalInfo, getProjects, savePersonalInfo, saveProjects, uploadImage, uploadVideo, deleteImage, deleteVideo, isSupabaseConfigured } from './lib/database';
 
 const ADMIN_PASSWORD = "yangtao666"; 
 
@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
   // 从数据库加载数据
@@ -191,6 +192,36 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
     }));
   };
 
+  // 处理视频上传
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>, projectId: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 检查文件类型
+    if (!file.type.startsWith('video/')) {
+      alert('请选择视频文件');
+      return;
+    }
+
+    // 上传视频
+    const videoUrl = await uploadVideo(file);
+    
+    if (videoUrl) {
+      // 删除旧视频
+      const project = projects.find(p => p.id === projectId);
+      if (project?.localVideoUrl) {
+        await deleteVideo(project.localVideoUrl);
+      }
+      setProjects(projects.map(p => p.id === projectId ? { ...p, localVideoUrl: videoUrl } : p));
+    }
+  };
+
+  // 删除视频
+  const handleDeleteVideo = async (projectId: string, videoUrl: string) => {
+    await deleteVideo(videoUrl);
+    setProjects(projects.map(p => p.id === projectId ? { ...p, localVideoUrl: undefined } : p));
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background-dark text-white flex items-center justify-center">
@@ -217,6 +248,54 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
             <h1 className="text-5xl md:text-8xl font-bold tracking-tighter mb-8 leading-none">{selectedProject.title}</h1>
             <p className="text-xl text-slate-400 font-light max-w-2xl mx-auto md:mx-0 mb-20">{selectedProject.description}</p>
             <img src={selectedProject.imageUrl} className="w-full rounded-[2.5rem] shadow-2xl border border-white/5 mb-10" alt="Main" />
+            
+            {/* 本地视频播放区域 */}
+            {selectedProject.localVideoUrl && (
+              <div className="w-full rounded-[2.5rem] overflow-hidden border border-white/5 mb-10 bg-black/50">
+                <div className="relative aspect-video">
+                  <video 
+                    src={selectedProject.localVideoUrl}
+                    controls
+                    className="w-full h-full"
+                    poster={selectedProject.imageUrl}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* 外部视频播放区域 */}
+            {selectedProject.videoUrl && !selectedProject.localVideoUrl && (
+              <div className="w-full rounded-[2.5rem] overflow-hidden border border-white/5 mb-10 bg-black/50">
+                {selectedProject.videoPlatform === 'bilibili' ? (
+                  <div className="relative aspect-video">
+                    <iframe 
+                      src={selectedProject.videoUrl.replace('bilibili.com/video/', 'player.bilibili.com/player.html?bvid=').replace('BV', 'BV')}
+                      className="w-full h-full"
+                      allowFullScreen
+                      scrolling="no"
+                      frameBorder="0"
+                    />
+                  </div>
+                ) : selectedProject.videoPlatform === 'youtube' ? (
+                  <div className="relative aspect-video">
+                    <iframe 
+                      src={selectedProject.videoUrl.replace('youtube.com/watch?v=', 'youtube.com/embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                      className="w-full h-full"
+                      allowFullScreen
+                      frameBorder="0"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative aspect-video flex items-center justify-center bg-surface-dark">
+                    <a href={selectedProject.videoUrl} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-4 text-primary hover:text-white transition-colors">
+                      <span className="material-symbols-outlined text-6xl">play_circle</span>
+                      <span className="text-sm font-medium">点击播放视频</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+            
             {selectedProject.galleryImages?.map((img, i) => (
               <img key={i} src={img} className="w-full rounded-[2.5rem] shadow-2xl border border-white/5 mb-10" alt={`Gallery ${i}`} />
             ))}
@@ -604,16 +683,63 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                               <div onClick={() => { setEditingProjectId(p.id); fileInputRef.current?.click(); }} className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-black uppercase">修改封面</div>
                            </div>
                            <div className="flex-1 grid grid-cols-2 gap-8">
-                              <input value={p.title} onChange={e => { const n = [...projects]; n[idx].title = e.target.value; setProjects(n); }} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-primary outline-none font-bold" />
+                              <input value={p.title} onChange={e => { const n = [...projects]; n[idx].title = e.target.value; setProjects(n); }} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-primary outline-none font-bold" placeholder="作品标题" />
                               <select value={p.category} onChange={e => { const n = [...projects]; n[idx].category = e.target.value; setProjects(n); }} className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-primary outline-none">
                                 <option value="AI 视频">AI 视频</option>
                                 <option value="设计项目">设计项目</option>
                                 <option value="品牌设计">品牌设计</option>
                               </select>
-                              <textarea value={p.description} onChange={e => { const n = [...projects]; n[idx].description = e.target.value; setProjects(n); }} className="col-span-2 bg-white/5 border border-white/10 rounded-3xl px-8 py-5 focus:border-primary outline-none resize-none" rows={3} />
+                              <textarea value={p.description} onChange={e => { const n = [...projects]; n[idx].description = e.target.value; setProjects(n); }} className="col-span-2 bg-white/5 border border-white/10 rounded-3xl px-8 py-5 focus:border-primary outline-none resize-none" rows={3} placeholder="作品描述" />
+                              
+                              {/* 视频链接输入 */}
+                              <div className="col-span-2 space-y-3">
+                                 <label className="text-[10px] font-black uppercase text-slate-500">视频链接（可选）</label>
+                                 <div className="flex gap-4">
+                                    <select 
+                                      value={p.videoPlatform || 'other'} 
+                                      onChange={e => { const n = [...projects]; n[idx].videoPlatform = e.target.value as any; setProjects(n); }}
+                                      className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 focus:border-primary outline-none text-sm"
+                                    >
+                                      <option value="other">其他</option>
+                                      <option value="bilibili">Bilibili</option>
+                                      <option value="youtube">YouTube</option>
+                                    </select>
+                                    <input 
+                                      value={p.videoUrl || ''} 
+                                      onChange={e => { const n = [...projects]; n[idx].videoUrl = e.target.value; setProjects(n); }}
+                                      className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-3 focus:border-primary outline-none text-sm"
+                                      placeholder="https://..."
+                                    />
+                                 </div>
+                                 <p className="text-xs text-slate-600">支持 Bilibili、YouTube 或其他视频平台链接</p>
+                              </div>
                            </div>
                            <button onClick={() => setProjects(projects.filter(proj => proj.id !== p.id))} className="text-red-500/30 hover:text-red-500 p-4 transition-all"><span className="material-symbols-outlined">delete</span></button>
                         </div>
+                        {/* 本地视频上传 */}
+                        <div className="pt-8 border-t border-white/5">
+                           <div className="flex justify-between mb-6">
+                              <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">本地视频</span>
+                              <div className="flex gap-4">
+                                 {p.localVideoUrl && (
+                                    <button onClick={() => handleDeleteVideo(p.id, p.localVideoUrl!)} className="text-[10px] font-black text-red-400 uppercase hover:underline">删除视频</button>
+                                 )}
+                                 <button onClick={() => { setEditingProjectId(p.id); videoInputRef.current?.click(); }} className="text-[10px] font-black text-primary uppercase hover:underline">{p.localVideoUrl ? '更换视频' : '+ 上传视频'}</button>
+                              </div>
+                           </div>
+                           {p.localVideoUrl ? (
+                              <div className="relative aspect-video bg-black/50 rounded-2xl overflow-hidden">
+                                 <video src={p.localVideoUrl} className="w-full h-full" controls />
+                              </div>
+                           ) : (
+                              <div className="flex items-center justify-center h-32 bg-white/5 border border-dashed border-white/10 rounded-2xl text-slate-500 text-sm">
+                                 <span className="material-symbols-outlined mr-2">videocam</span>
+                                 暂无视频（支持 MP4/WebM，最大 50MB）
+                              </div>
+                           )}
+                        </div>
+
+                        {/* 画廊图片 */}
                         <div className="pt-8 border-t border-white/5">
                            <div className="flex justify-between mb-6">
                               <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">详情展示画廊 ({p.galleryImages?.length || 0})</span>
@@ -678,6 +804,7 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
       <input type="file" ref={heroInputRef} hidden accept="image/*" onChange={e => handleImageUpload(e, 'hero')} />
       <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={e => editingProjectId && handleImageUpload(e, 'project', editingProjectId)} />
       <input type="file" ref={galleryInputRef} hidden accept="image/*" onChange={e => editingProjectId && handleImageUpload(e, 'gallery', editingProjectId)} />
+      <input type="file" ref={videoInputRef} hidden accept="video/*" onChange={e => editingProjectId && handleVideoUpload(e, editingProjectId)} />
     </div>
   );
 };

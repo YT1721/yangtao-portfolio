@@ -123,6 +123,66 @@ export async function uploadImage(file: File, path: string): Promise<string | nu
   });
 }
 
+// 上传视频到 Supabase Storage
+export async function uploadVideo(file: File): Promise<string | null> {
+  console.log('Uploading video:', file.name, 'size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+  
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase not configured, cannot upload video');
+    return null;
+  }
+
+  // 检查文件大小（50MB 限制）
+  if (file.size > 50 * 1024 * 1024) {
+    console.error('Video file too large. Max size is 50MB');
+    alert('视频文件过大，请压缩至 50MB 以下');
+    return null;
+  }
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const filePath = `videos/${fileName}`;
+
+  console.log('Uploading video to Supabase:', filePath);
+  
+  const { error: uploadError } = await supabase.storage
+    .from('portfolio')
+    .upload(filePath, file, {
+      contentType: file.type,
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error('Error uploading video:', uploadError);
+    alert('视频上传失败: ' + uploadError.message);
+    return null;
+  }
+
+  const { data } = supabase.storage.from('portfolio').getPublicUrl(filePath);
+  console.log('Video uploaded successfully, URL:', data.publicUrl);
+  return data.publicUrl;
+}
+
+// 删除视频
+export async function deleteVideo(url: string): Promise<void> {
+  if (!isSupabaseConfigured() || !url.includes('supabase')) {
+    return;
+  }
+
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    const bucketIndex = pathParts.indexOf('portfolio');
+    if (bucketIndex === -1) return;
+    
+    const filePath = pathParts.slice(bucketIndex + 1).join('/');
+    await supabase.storage.from('portfolio').remove([filePath]);
+    console.log('Video deleted:', filePath);
+  } catch (e) {
+    console.error('Error deleting video:', e);
+  }
+}
+
 // 删除 Storage 中的图片
 export async function deleteImage(url: string): Promise<void> {
   if (!isSupabaseConfigured() || url.startsWith('data:')) {
