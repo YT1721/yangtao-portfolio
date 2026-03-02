@@ -46,11 +46,13 @@ export async function getPersonalInfo(): Promise<PersonalInfo | null> {
 
 // 保存个人资料到 Supabase
 export async function savePersonalInfo(info: PersonalInfo): Promise<boolean> {
-  // 总是保存到 localStorage 作为备份
-  localStorage.setItem('yt_profile', JSON.stringify(info));
-
   if (!isSupabaseConfigured()) {
     console.warn('Supabase not configured, saved to localStorage only');
+    try {
+      localStorage.setItem('yt_profile', JSON.stringify(info));
+    } catch (e) {
+      console.error('localStorage quota exceeded');
+    }
     return true;
   }
 
@@ -91,11 +93,13 @@ export async function getProjects(): Promise<Project[]> {
 
 // 保存项目列表到 Supabase
 export async function saveProjects(projects: Project[]): Promise<boolean> {
-  // 总是保存到 localStorage 作为备份
-  localStorage.setItem('yt_projects', JSON.stringify(projects));
-
   if (!isSupabaseConfigured()) {
     console.warn('Supabase not configured, saved to localStorage only');
+    try {
+      localStorage.setItem('yt_projects', JSON.stringify(projects));
+    } catch (e) {
+      console.error('localStorage quota exceeded');
+    }
     return true;
   }
 
