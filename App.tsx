@@ -269,11 +269,14 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                 {selectedProject.videoPlatform === 'bilibili' ? (
                   <div className="relative aspect-video">
                     <iframe 
-                      src={selectedProject.videoUrl.replace('bilibili.com/video/', 'player.bilibili.com/player.html?bvid=').replace('BV', 'BV')}
+                      src={selectedProject.videoUrl.includes('player.bilibili.com') 
+                        ? selectedProject.videoUrl 
+                        : `//player.bilibili.com/player.html?bvid=${selectedProject.videoUrl.match(/BV[a-zA-Z0-9]+/)?.[0] || ''}&page=1&high_quality=1&danmaku=0`}
                       className="w-full h-full"
                       allowFullScreen
                       scrolling="no"
                       frameBorder="0"
+                      sandbox="allow-top-navigation allow-same-origin allow-forms allow-scripts"
                     />
                   </div>
                 ) : selectedProject.videoPlatform === 'youtube' ? (
