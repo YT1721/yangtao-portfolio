@@ -63,7 +63,32 @@ const App: React.FC = () => {
     if (authStatus === 'true') setIsAuthenticated(true);
   }, []);
 
-  // 自动保存到数据库
+  // 手动保存函数
+  const handleManualSave = async () => {
+    setSaveStatus('saving');
+    try {
+      const [infoSaved, projectsSaved] = await Promise.all([
+        savePersonalInfo(personalInfo),
+        saveProjects(projects)
+      ]);
+      
+      if (infoSaved && projectsSaved) {
+        setSaveStatus('saved');
+        alert('保存成功！数据已同步到云端。');
+      } else {
+        setSaveStatus('error');
+        alert('保存失败，请检查网络连接后重试。');
+      }
+    } catch (error) {
+      console.error('Manual save error:', error);
+      setSaveStatus('error');
+      alert('保存出错: ' + (error as Error).message);
+    } finally {
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  // 自动保存到数据库（延迟 3 秒，避免频繁保存）
   useEffect(() => {
     if (isLoading) return;
     
@@ -77,10 +102,10 @@ const App: React.FC = () => {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (error) {
-        console.error('Error saving:', error);
+        console.error('Auto save error:', error);
         setSaveStatus('error');
       }
-    }, 1000);
+    }, 3000);
 
     return () => clearTimeout(timeoutId);
   }, [personalInfo, projects, isLoading]);
@@ -764,15 +789,29 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                 {activeAdminTab === 'system' && (
                   <div className="space-y-8">
                     <div className="max-w-3xl p-16 bg-indigo-600/10 border border-indigo-600/20 rounded-[4rem] space-y-10 text-left">
-                       <h3 className="text-4xl font-black italic uppercase tracking-tighter text-indigo-400">云端同步状态</h3>
+                       <div className="flex items-center justify-between">
+                          <h3 className="text-4xl font-black italic uppercase tracking-tighter text-indigo-400">云端同步状态</h3>
+                          {saveStatus !== 'idle' && (
+                            <span className={`px-4 py-2 rounded-full text-xs font-bold ${
+                              saveStatus === 'saving' ? 'bg-yellow-500/20 text-yellow-400' :
+                              saveStatus === 'saved' ? 'bg-green-500/20 text-green-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存' : '保存失败'}
+                            </span>
+                          )}
+                       </div>
                        <p className="text-slate-400 leading-relaxed text-lg">
                          {isSupabaseConfigured() 
                            ? '已连接到 Supabase 云端数据库。所有修改会自动保存到云端，无需重新部署即可生效。'
                            : '未配置 Supabase。当前使用本地存储模式，数据仅保存在当前浏览器中。'}
                        </p>
-                       <button onClick={handleSaveToLocal} className="w-full py-8 bg-indigo-600 rounded-[2.5rem] text-xs font-black uppercase shadow-2xl shadow-indigo-600/40 hover:bg-indigo-500 transition-all flex items-center justify-center gap-4">
-                          <span className="material-symbols-outlined">cloud_upload</span> 立即同步到云端
-                       </button>
+                       <div className="flex gap-4">
+                          <button onClick={handleManualSave} disabled={saveStatus === 'saving'} className="flex-1 py-8 bg-indigo-600 rounded-[2.5rem] text-xs font-black uppercase shadow-2xl shadow-indigo-600/40 hover:bg-indigo-500 transition-all flex items-center justify-center gap-4 disabled:opacity-50">
+                             <span className="material-symbols-outlined">save</span> {saveStatus === 'saving' ? '保存中...' : '立即保存到云端'}
+                          </button>
+                       </div>
+                       <p className="text-xs text-slate-500">提示：修改内容后，建议点击"立即保存到云端"按钮确保数据已同步。</p>
                     </div>
                     <div className="max-w-3xl p-16 bg-white/[0.02] border border-white/10 rounded-[4rem] space-y-10 text-left">
                        <h3 className="text-4xl font-black italic uppercase tracking-tighter text-slate-400">导出源码（备用）</h3>

@@ -115,16 +115,53 @@ export async function saveProjects(projects: Project[]): Promise<boolean> {
   return true;
 }
 
-// 上传图片 - 使用 Base64 编码（避免 CORS 问题）
+// 上传图片到 Supabase Storage
 export async function uploadImage(file: File, path: string): Promise<string | null> {
-  console.log('Uploading image:', file.name, 'using Base64');
+  console.log('Uploading image:', file.name, 'size:', (file.size / 1024).toFixed(2), 'KB');
   
-  // 始终使用 Base64 编码，避免 Supabase Storage 的 CORS 问题
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(file);
-  });
+  if (!isSupabaseConfigured()) {
+    console.warn('Supabase not configured, using Base64 fallback');
+    // 如果 Supabase 未配置，使用 Base64 作为后备
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 检查文件大小（5MB 限制）
+  if (file.size > 5 * 1024 * 1024) {
+    console.error('Image file too large. Max size is 5MB');
+    alert('图片文件过大，请压缩至 5MB 以下');
+    return null;
+  }
+
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const filePath = `${path}/${fileName}`;
+
+  console.log('Uploading image to Supabase:', filePath);
+  
+  const { error: uploadError } = await supabase.storage
+    .from('portfolio')
+    .upload(filePath, file, {
+      contentType: file.type,
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error('Error uploading image:', uploadError);
+    // 上传失败时回退到 Base64
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const { data } = supabase.storage.from('portfolio').getPublicUrl(filePath);
+  console.log('Image uploaded successfully, URL:', data.publicUrl);
+  return data.publicUrl;
 }
 
 // 上传视频到 Supabase Storage
