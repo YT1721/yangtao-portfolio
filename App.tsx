@@ -325,7 +325,16 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
             )}
             
             {selectedProject.galleryImages?.map((img, i) => (
-              <img key={i} src={img} className="w-full rounded-[2.5rem] shadow-2xl border border-white/5 mb-10" alt={`Gallery ${i}`} />
+              <img 
+                key={i} 
+                src={img} 
+                className="w-full rounded-[2.5rem] shadow-2xl border border-white/5 mb-10" 
+                alt={`Gallery ${i}`}
+                onError={(e) => {
+                  console.error('Gallery image failed to load:', img);
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23333"/><text x="50" y="50" font-size="40" fill="%23666" text-anchor="middle" dy=".3em">?</text></svg>';
+                }}
+              />
             ))}
           </div>
         </main>
@@ -361,7 +370,14 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
           </div>
           <div className="flex-1 w-full h-full relative min-h-[600px] lg:min-h-screen group">
              <div className="absolute inset-0 bg-gradient-to-tr from-background-dark via-transparent to-transparent z-10"></div>
-             <img src={personalInfo.heroImageUrl} className="absolute inset-0 w-full h-full object-cover opacity-90 transition-all duration-1000 grayscale hover:grayscale-0 scale-105 group-hover:scale-100" />
+             <img 
+               src={personalInfo.heroImageUrl} 
+               className="absolute inset-0 w-full h-full object-cover opacity-90 transition-all duration-1000 grayscale hover:grayscale-0 scale-105 group-hover:scale-100"
+               onError={(e) => {
+                 console.error('Hero image failed to load:', personalInfo.heroImageUrl);
+                 (e.target as HTMLImageElement).style.display = 'none';
+               }}
+             />
              <div className="absolute bottom-20 right-10 z-20 text-right">
                 <div className="text-sm font-black uppercase tracking-[0.4em] mb-4 text-primary drop-shadow-[0_0_10px_rgba(55,19,236,0.8)]">PORTFOLIO EDITION</div>
                 <div className="flex flex-col items-end">
@@ -605,7 +621,15 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
               {filteredProjects.map((project) => (
                 <div key={project.id} onClick={() => { setSelectedProjectId(project.id); setCurrentView('detail'); window.scrollTo(0,0); }} className="group relative rounded-[3rem] overflow-hidden bg-surface-dark border border-white/5 h-[600px] cursor-pointer">
-                  <img src={project.imageUrl} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all duration-1000" alt={project.title} />
+                  <img 
+                    src={project.imageUrl} 
+                    className="w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all duration-1000" 
+                    alt={project.title}
+                    onError={(e) => {
+                      console.error('Project image failed to load:', project.imageUrl);
+                      (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23333"/><text x="50" y="50" font-size="20" fill="%23666" text-anchor="middle" dy=".3em">No Image</text></svg>';
+                    }}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
                   <div className="absolute bottom-0 left-0 p-12 transform translate-y-8 group-hover:translate-y-0 transition-all duration-700">
                     <span className="px-3 py-1.5 bg-primary/20 backdrop-blur-md text-primary text-[9px] font-black uppercase rounded-lg mb-6 inline-block tracking-widest border border-primary/30 italic">{project.category}</span>
@@ -674,7 +698,14 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                      <div className="flex gap-16 items-start">
                         <div className="relative group size-80 shrink-0 cursor-pointer overflow-hidden rounded-[4rem] border-2 border-dashed border-white/10 hover:border-primary transition-all">
                            {console.log('Hero image URL:', personalInfo.heroImageUrl)}
-                           <img src={personalInfo.heroImageUrl} className="w-full h-full object-cover" onError={(e) => console.error('Image failed to load:', e)} />
+                           <img 
+                             src={personalInfo.heroImageUrl} 
+                             className="w-full h-full object-cover" 
+                             onError={(e) => {
+                               console.error('Hero image failed to load:', personalInfo.heroImageUrl);
+                               (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23333"/><text x="50" y="50" font-size="40" fill="%23666" text-anchor="middle" dy=".3em">?</text></svg>';
+                             }} 
+                           />
                            <div onClick={() => heroInputRef.current?.click()} className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <span className="material-symbols-outlined text-4xl text-primary mb-4">photo_camera</span>
                               <span className="text-[10px] font-black uppercase">更换形象照片</span>
@@ -776,7 +807,14 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
                               {p.galleryImages?.map((img, i) => (
                                 <div key={i} className="relative group/img size-32 shrink-0">
-                                   <img src={img} className="w-full h-full rounded-2xl object-cover border border-white/10 shadow-xl" />
+                                   <img 
+                                     src={img} 
+                                     className="w-full h-full rounded-2xl object-cover border border-white/10 shadow-xl"
+                                     onError={(e) => {
+                                       console.error('Admin gallery image failed to load:', img);
+                                       (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23333"/><text x="50" y="50" font-size="30" fill="%23666" text-anchor="middle" dy=".3em">?</text></svg>';
+                                     }}
+                                   />
                                    <button onClick={() => handleDeleteGalleryImage(p.id, img, i)} className="absolute -top-3 -right-3 size-8 bg-red-600 rounded-full text-white opacity-0 group-hover/img:opacity-100 transition-all shadow-xl flex items-center justify-center"><span className="material-symbols-outlined text-xs">close</span></button>
                                 </div>
                               ))}

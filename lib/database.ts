@@ -152,6 +152,7 @@ export async function uploadImage(file: File, path: string): Promise<string | nu
   if (uploadError) {
     console.error('Error uploading image:', uploadError);
     // 上传失败时回退到 Base64
+    console.log('Falling back to Base64 due to upload error');
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
@@ -161,6 +162,21 @@ export async function uploadImage(file: File, path: string): Promise<string | nu
 
   const { data } = supabase.storage.from('portfolio').getPublicUrl(filePath);
   console.log('Image uploaded successfully, URL:', data.publicUrl);
+  
+  // 验证 URL 是否可访问
+  try {
+    const response = await fetch(data.publicUrl, { method: 'HEAD', mode: 'no-cors' });
+    console.log('URL accessibility check passed');
+  } catch (e) {
+    console.warn('URL may not be accessible, falling back to Base64');
+    // 如果 URL 可能不可访问，回退到 Base64
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  }
+  
   return data.publicUrl;
 }
 
