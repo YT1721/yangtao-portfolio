@@ -119,16 +119,6 @@ export async function saveProjects(projects: Project[]): Promise<boolean> {
 export async function uploadImage(file: File, path: string): Promise<string | null> {
   console.log('Uploading image:', file.name, 'size:', (file.size / 1024).toFixed(2), 'KB');
   
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured, using Base64 fallback');
-    // 如果 Supabase 未配置，使用 Base64 作为后备
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
-
   // 检查文件大小（5MB 限制）
   if (file.size > 5 * 1024 * 1024) {
     console.error('Image file too large. Max size is 5MB');
@@ -136,48 +126,21 @@ export async function uploadImage(file: File, path: string): Promise<string | nu
     return null;
   }
 
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  const filePath = `${path}/${fileName}`;
-
-  console.log('Uploading image to Supabase:', filePath);
-  
-  const { error: uploadError } = await supabase.storage
-    .from('portfolio')
-    .upload(filePath, file, {
-      contentType: file.type,
-      upsert: false
-    });
-
-  if (uploadError) {
-    console.error('Error uploading image:', uploadError);
-    // 上传失败时回退到 Base64
-    console.log('Falling back to Base64 due to upload error');
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  const { data } = supabase.storage.from('portfolio').getPublicUrl(filePath);
-  console.log('Image uploaded successfully, URL:', data.publicUrl);
-  
-  // 验证 URL 是否可访问
-  try {
-    const response = await fetch(data.publicUrl, { method: 'HEAD', mode: 'no-cors' });
-    console.log('URL accessibility check passed');
-  } catch (e) {
-    console.warn('URL may not be accessible, falling back to Base64');
-    // 如果 URL 可能不可访问，回退到 Base64
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-  }
-  
-  return data.publicUrl;
+  // 直接转换为 Base64，避免 Supabase Storage 的访问问题
+  console.log('Converting image to Base64 for reliable storage');
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      console.log('Image converted to Base64, length:', base64.length);
+      resolve(base64);
+    };
+    reader.onerror = () => {
+      console.error('Failed to convert image to Base64');
+      resolve(null);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // 上传视频到 Supabase Storage
