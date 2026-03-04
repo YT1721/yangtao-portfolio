@@ -431,18 +431,12 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                  <h2 className="text-2xl font-bold">服务过的客户</h2>
               </div>
               
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4">
-                 {DEFAULT_CUSTOMERS.map((customer, i) => (
-                    <div 
-                       key={i} 
-                       className="aspect-square rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-3 hover:border-blue-500/30 hover:bg-white/[0.08] transition-all group cursor-default"
-                       title={customer}
-                    >
-                       <span className="text-[10px] font-medium text-slate-400 text-center leading-tight group-hover:text-white transition-colors line-clamp-2">
-                          {customer}
-                       </span>
-                    </div>
-                 ))}
+              <div className="rounded-2xl overflow-hidden border border-white/10 bg-white">
+                 <img 
+                    src="/customers.png" 
+                    alt="服务过的客户" 
+                    className="w-full h-auto"
+                 />
               </div>
            </div>
         </section>
