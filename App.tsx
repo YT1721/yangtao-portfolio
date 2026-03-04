@@ -537,7 +537,7 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
                               {/* 时间节点 */}
                               <div className="flex items-center gap-3 md:w-36 shrink-0">
                                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-primary/50 group-hover:bg-primary/10 transition-all">
-                                    <span className="text-xs font-bold text-white">{edu.degree.substring(0, 1)}</span>
+                                    <span className="text-sm font-bold text-white">{edu.degree.includes('大专') ? '专' : edu.degree.substring(0, 1)}</span>
                                  </div>
                                  <span className="text-xs text-slate-500 md:hidden">{edu.period}</span>
                               </div>
