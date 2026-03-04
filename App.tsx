@@ -8,7 +8,8 @@ import {
   EDUCATION as DEFAULT_EDUCATION,
   ABILITY_SCORES as DEFAULT_SCORES,
   MANAGEMENT_SCORES as DEFAULT_MANAGEMENT,
-  SOFTWARE_SKILLS as DEFAULT_SOFTWARE
+  SOFTWARE_SKILLS as DEFAULT_SOFTWARE,
+  CUSTOMER_LOGOS as DEFAULT_CUSTOMERS
 } from './constants';
 import { Project } from './types';
 import { getPersonalInfo, getProjects, savePersonalInfo, saveProjects, uploadImage, uploadVideo, deleteImage, deleteVideo, isSupabaseConfigured } from './lib/database';
@@ -418,6 +419,32 @@ export const CUSTOMER_LOGOS = ${JSON.stringify(["安踏", "雀巢", "立白", "�
               </div>
             </div>
           </div>
+        </section>
+
+        {/* 服务过的客户 */}
+        <section className="py-24 bg-surface-dark relative border-y border-white/5">
+           <div className="max-w-7xl mx-auto px-6 md:px-12">
+              <div className="flex items-center gap-3 mb-12">
+                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-xl text-blue-400">business</span>
+                 </div>
+                 <h2 className="text-2xl font-bold">服务过的客户</h2>
+              </div>
+              
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4">
+                 {DEFAULT_CUSTOMERS.map((customer, i) => (
+                    <div 
+                       key={i} 
+                       className="aspect-square rounded-xl bg-white/5 border border-white/10 flex items-center justify-center p-3 hover:border-blue-500/30 hover:bg-white/[0.08] transition-all group cursor-default"
+                       title={customer}
+                    >
+                       <span className="text-[10px] font-medium text-slate-400 text-center leading-tight group-hover:text-white transition-colors line-clamp-2">
+                          {customer}
+                       </span>
+                    </div>
+                 ))}
+              </div>
+           </div>
         </section>
 
         {/* 个人能力 - 三列布局 */}
