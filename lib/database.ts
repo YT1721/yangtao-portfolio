@@ -115,6 +115,44 @@ export async function saveProjects(projects: Project[]): Promise<boolean> {
   return true;
 }
 
+// 压缩图片
+async function compressImage(file: File, maxWidth: number = 1200, maxHeight: number = 1200, quality: number = 0.7): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    img.onload = () => {
+      let { width, height } = img;
+      
+      // 计算缩放比例
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width *= ratio;
+        height *= ratio;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // 绘制压缩后的图片
+      ctx?.drawImage(img, 0, 0, width, height);
+      
+      // 转换为 Base64 (JPEG 格式，质量 0.7)
+      const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+      console.log('Image compressed, original:', file.size, 'compressed length:', compressedBase64.length);
+      resolve(compressedBase64);
+    };
+    
+    img.onerror = () => {
+      console.error('Failed to load image for compression');
+      resolve(null);
+    };
+    
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 // 上传图片到 Supabase Storage
 export async function uploadImage(file: File, path: string): Promise<string | null> {
   console.log('Uploading image:', file.name, 'size:', (file.size / 1024).toFixed(2), 'KB');
@@ -126,21 +164,22 @@ export async function uploadImage(file: File, path: string): Promise<string | nu
     return null;
   }
 
-  // 直接转换为 Base64，避免 Supabase Storage 的访问问题
-  console.log('Converting image to Base64 for reliable storage');
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      console.log('Image converted to Base64, length:', base64.length);
-      resolve(base64);
-    };
-    reader.onerror = () => {
-      console.error('Failed to convert image to Base64');
-      resolve(null);
-    };
-    reader.readAsDataURL(file);
-  });
+  // 压缩图片并转换为 Base64
+  console.log('Compressing image for reliable storage');
+  const compressed = await compressImage(file, 1200, 1200, 0.7);
+  
+  if (!compressed) {
+    console.error('Failed to compress image');
+    return null;
+  }
+  
+  // 如果压缩后还是太大 (> 500KB)，进一步压缩
+  if (compressed.length > 500 * 1024) {
+    console.log('Image still too large, compressing further...');
+    return await compressImage(file, 800, 800, 0.5);
+  }
+  
+  return compressed;
 }
 
 // 上传视频到 Supabase Storage
