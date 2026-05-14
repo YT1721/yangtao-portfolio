@@ -1,11 +1,13 @@
-import { supabase, isSupabaseConfigured } from './supabase';
-import { Project } from '../types';
+import { supabase, isSupabaseConfigured } from "./supabase";
+import { Project } from "../types";
 
-// 重新导出 isSupabaseConfigured，方便 App.tsx 导入
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+
 export { isSupabaseConfigured };
 
-const PERSONAL_INFO_KEY = 'personal_info';
-const PROJECTS_KEY = 'projects';
+const PERSONAL_INFO_KEY = "personal_info";
+const PROJECTS_KEY = "projects";
 
 interface PersonalInfo {
   name: string;
@@ -21,242 +23,530 @@ interface PersonalInfo {
   awards: string[];
 }
 
-// 从 Supabase 获取个人资料
-export async function getPersonalInfo(): Promise<PersonalInfo | null> {
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured, using localStorage');
-    const local = localStorage.getItem('yt_profile');
-    return local ? JSON.parse(local) : null;
-  }
-
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', PERSONAL_INFO_KEY)
-    .single();
-
-  if (error || !data) {
-    console.log('No data from Supabase, checking localStorage');
-    const local = localStorage.getItem('yt_profile');
-    return local ? JSON.parse(local) : null;
-  }
-
-  return data.value as PersonalInfo;
+export interface SaveResult {
+  success: boolean;
+  message: string;
+  cloudSaved: boolean;
+  localBackup: boolean;
+  retryCount?: number;
 }
 
-// 保存个人资料到 Supabase
-export async function savePersonalInfo(info: PersonalInfo): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured, saved to localStorage only');
+export interface LoadResult<T> {
+  data: T;
+  source: "cloud" | "local" | "default";
+  message: string;
+  success: boolean;
+}
+
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelay: 1000,
+  maxDelay: 5000,
+  backoffFactor: 2,
+};
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  operationName: string,
+): Promise<{
+  result: T | null;
+  retries: number;
+  success: boolean;
+  error?: Error;
+}> {
+  let retries = 0;
+  let delay = RETRY_CONFIG.initialDelay;
+
+  while (retries <= RETRY_CONFIG.maxRetries) {
     try {
-      localStorage.setItem('yt_profile', JSON.stringify(info));
-    } catch (e) {
-      console.error('localStorage quota exceeded');
+      const result = await fn();
+      if (retries > 0) {
+        console.log(`${operationName}: 重试成功，共重试 ${retries} 次`);
+      }
+      return { result, retries, success: true };
+    } catch (error) {
+      retries++;
+      console.warn(`${operationName}: 第 ${retries} 次尝试失败:`, error);
+
+      if (retries > RETRY_CONFIG.maxRetries) {
+        console.error(
+          `${operationName}: 已达最大重试次数 ${RETRY_CONFIG.maxRetries}`,
+        );
+        return { result: null, retries, success: false, error: error as Error };
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay = Math.min(
+        delay * RETRY_CONFIG.backoffFactor,
+        RETRY_CONFIG.maxDelay,
+      );
     }
-    return true;
   }
 
-  const { error } = await supabase
-    .from('settings')
-    .upsert({ key: PERSONAL_INFO_KEY, value: info }, { onConflict: 'key' });
-
-  if (error) {
-    console.error('Error saving to Supabase:', error);
-    return false;
-  }
-
-  return true;
+  return { result: null, retries: 0, success: false };
 }
 
-// 从 Supabase 获取项目列表
-export async function getProjects(): Promise<Project[]> {
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured, using localStorage');
-    const local = localStorage.getItem('yt_projects');
-    return local ? JSON.parse(local) : [];
-  }
+export async function saveWithBackup(
+  saveFunction: () => Promise<boolean>,
+  localStorageKey: string,
+  data: any,
+): Promise<SaveResult> {
+  const result: SaveResult = {
+    success: false,
+    message: "",
+    cloudSaved: false,
+    localBackup: false,
+    retryCount: 0,
+  };
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', PROJECTS_KEY)
-    .single();
-
-  if (error || !data) {
-    console.log('No data from Supabase, checking localStorage');
-    const local = localStorage.getItem('yt_projects');
-    return local ? JSON.parse(local) : [];
-  }
-
-  return data.value as Project[];
-}
-
-// 保存项目列表到 Supabase
-export async function saveProjects(projects: Project[]): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured, saved to localStorage only');
+  if (isSupabaseConfigured()) {
     try {
-      localStorage.setItem('yt_projects', JSON.stringify(projects));
-    } catch (e) {
-      console.error('localStorage quota exceeded');
+      const { success, retries } = await withRetry(saveFunction, "云端保存");
+      result.cloudSaved = success;
+      result.retryCount = retries;
+
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(data));
+        result.localBackup = true;
+      } catch (e) {
+        console.warn("Local backup failed:", e);
+      }
+
+      if (success) {
+        result.success = true;
+        result.message =
+          retries > 0 ? `已保存到云端（重试 ${retries} 次）` : "已保存到云端";
+      } else {
+        result.success = result.localBackup;
+        result.message = result.localBackup
+          ? "已保存到本地备份（云端保存失败）"
+          : "保存失败";
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      result.message = "保存出错：" + (error as Error).message;
+
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(data));
+        result.localBackup = true;
+        result.success = true;
+        result.message = "已保存到本地备份（云端保存失败）";
+      } catch (e) {
+        console.error("Even local backup failed:", e);
+      }
     }
-    return true;
+  } else {
+    try {
+      localStorage.setItem(localStorageKey, JSON.stringify(data));
+      result.localBackup = true;
+      result.success = true;
+      result.message = "已保存到本地（云端未配置）";
+    } catch (e) {
+      result.success = false;
+      result.message = "本地存储已满，保存失败";
+    }
   }
 
-  const { error } = await supabase
-    .from('settings')
-    .upsert({ key: PROJECTS_KEY, value: projects }, { onConflict: 'key' });
-
-  if (error) {
-    console.error('Error saving to Supabase:', error);
-    return false;
-  }
-
-  return true;
+  return result;
 }
 
-// 压缩图片
-async function compressImage(file: File, maxWidth: number = 1200, maxHeight: number = 1200, quality: number = 0.7): Promise<string | null> {
+const CACHE_EXPIRY_HOURS = 24;
+
+function isCacheValid(key: string): boolean {
+  const expiryKey = `${key}_expiry`;
+  const expiry = localStorage.getItem(expiryKey);
+  if (!expiry) return false;
+  return new Date().getTime() < parseInt(expiry);
+}
+
+function setCacheExpiry(key: string): void {
+  const expiryKey = `${key}_expiry`;
+  const expiry = new Date().getTime() + CACHE_EXPIRY_HOURS * 60 * 60 * 1000;
+  localStorage.setItem(expiryKey, expiry.toString());
+}
+
+async function fetchFromCloud<T>(key: string): Promise<T | null> {
+  try {
+    const { data, error } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", key)
+      .single();
+
+    if (!error && data) {
+      return data.value as T;
+    }
+  } catch (e) {
+    console.error("Cloud fetch failed:", e);
+  }
+  return null;
+}
+
+export async function getPersonalInfo(): Promise<
+  LoadResult<PersonalInfo | null>
+> {
+  const result: LoadResult<PersonalInfo | null> = {
+    data: null,
+    source: "default",
+    message: "",
+    success: false,
+  };
+
+  const localKey = "yt_profile";
+  const backupKey = "yt_profile_backup";
+
+  if (isCacheValid(localKey)) {
+    const localData =
+      localStorage.getItem(localKey) || localStorage.getItem(backupKey);
+    if (localData) {
+      console.log("使用缓存数据");
+      result.data = JSON.parse(localData);
+      result.source = "local";
+      result.success = true;
+      result.message = "已加载缓存数据";
+
+      setTimeout(async () => {
+        if (isSupabaseConfigured()) {
+          console.log("后台刷新云端数据...");
+          const cloudData =
+            await fetchFromCloud<PersonalInfo>(PERSONAL_INFO_KEY);
+          if (cloudData) {
+            localStorage.setItem(localKey, JSON.stringify(cloudData));
+            setCacheExpiry(localKey);
+            localStorage.setItem(backupKey, JSON.stringify(cloudData));
+            console.log("后台刷新完成");
+          }
+        }
+      }, 100);
+
+      return result;
+    }
+  }
+
+  if (isSupabaseConfigured()) {
+    console.log("尝试从云端加载数据...");
+    const {
+      result: cloudData,
+      success,
+      retries,
+    } = await withRetry(
+      () => fetchFromCloud<PersonalInfo>(PERSONAL_INFO_KEY),
+      "加载个人信息",
+    );
+
+    if (success && cloudData) {
+      localStorage.setItem(localKey, JSON.stringify(cloudData));
+      setCacheExpiry(localKey);
+      localStorage.setItem(backupKey, JSON.stringify(cloudData));
+      result.data = cloudData;
+      result.source = "cloud";
+      result.success = true;
+      result.message =
+        retries > 0 ? `已从云端加载（重试 ${retries} 次）` : "已从云端加载";
+      return result;
+    }
+  }
+
+  const localData =
+    localStorage.getItem(localKey) || localStorage.getItem(backupKey);
+  if (localData) {
+    result.data = JSON.parse(localData);
+    result.source = "local";
+    result.success = true;
+    result.message = "云端不可用，使用本地数据";
+    return result;
+  }
+
+  result.message = "无可用数据";
+  return result;
+}
+
+export async function savePersonalInfo(
+  info: PersonalInfo,
+): Promise<SaveResult> {
+  return saveWithBackup(
+    async () => {
+      const { error } = await supabase
+        .from("settings")
+        .upsert({ key: PERSONAL_INFO_KEY, value: info }, { onConflict: "key" });
+      return !error;
+    },
+    "yt_profile",
+    info,
+  );
+}
+
+export async function getProjects(): Promise<LoadResult<Project[]>> {
+  const result: LoadResult<Project[]> = {
+    data: [],
+    source: "default",
+    message: "",
+    success: false,
+  };
+
+  const localKey = "yt_projects";
+  const backupKey = "yt_projects_backup";
+
+  if (isCacheValid(localKey)) {
+    const localData =
+      localStorage.getItem(localKey) || localStorage.getItem(backupKey);
+    if (localData) {
+      console.log("使用缓存数据");
+      result.data = JSON.parse(localData);
+      result.source = "local";
+      result.success = true;
+      result.message = "已加载缓存数据";
+
+      setTimeout(async () => {
+        if (isSupabaseConfigured()) {
+          console.log("后台刷新云端项目数据...");
+          const cloudData = await fetchFromCloud<Project[]>(PROJECTS_KEY);
+          if (cloudData) {
+            localStorage.setItem(localKey, JSON.stringify(cloudData));
+            setCacheExpiry(localKey);
+            localStorage.setItem(backupKey, JSON.stringify(cloudData));
+            console.log("后台刷新完成");
+          }
+        }
+      }, 100);
+
+      return result;
+    }
+  }
+
+  if (isSupabaseConfigured()) {
+    console.log("尝试从云端加载项目数据...");
+    const {
+      result: cloudData,
+      success,
+      retries,
+    } = await withRetry(
+      () => fetchFromCloud<Project[]>(PROJECTS_KEY),
+      "加载项目列表",
+    );
+
+    if (success && cloudData) {
+      localStorage.setItem(localKey, JSON.stringify(cloudData));
+      setCacheExpiry(localKey);
+      localStorage.setItem(backupKey, JSON.stringify(cloudData));
+      result.data = cloudData;
+      result.source = "cloud";
+      result.success = true;
+      result.message =
+        retries > 0 ? `已从云端加载（重试 ${retries} 次）` : "已从云端加载";
+      return result;
+    }
+  }
+
+  const localData =
+    localStorage.getItem(localKey) || localStorage.getItem(backupKey);
+  if (localData) {
+    result.data = JSON.parse(localData);
+    result.source = "local";
+    result.success = true;
+    result.message = "云端不可用，使用本地数据";
+    return result;
+  }
+
+  result.message = "无可用项目数据";
+  return result;
+}
+
+export async function saveProjects(projects: Project[]): Promise<SaveResult> {
+  return saveWithBackup(
+    async () => {
+      const { error } = await supabase
+        .from("settings")
+        .upsert({ key: PROJECTS_KEY, value: projects }, { onConflict: "key" });
+      return !error;
+    },
+    "yt_projects",
+    projects,
+  );
+}
+
+async function compressImage(
+  file: File,
+  maxWidth: number = 1200,
+  maxHeight: number = 1200,
+  quality: number = 0.7,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
     img.onload = () => {
       let { width, height } = img;
-      
-      // 计算缩放比例
+
       if (width > maxWidth || height > maxHeight) {
         const ratio = Math.min(maxWidth / width, maxHeight / height);
         width *= ratio;
         height *= ratio;
       }
-      
+
       canvas.width = width;
       canvas.height = height;
-      
-      // 绘制压缩后的图片
+
       ctx?.drawImage(img, 0, 0, width, height);
-      
-      // 转换为 Base64 (JPEG 格式，质量 0.7)
-      const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-      console.log('Image compressed, original:', file.size, 'compressed length:', compressedBase64.length);
+
+      const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
+      console.log(
+        "Image compressed:",
+        (file.size / 1024).toFixed(2),
+        "KB →",
+        (compressedBase64.length / 1024).toFixed(2),
+        "KB",
+      );
       resolve(compressedBase64);
     };
-    
+
     img.onerror = () => {
-      console.error('Failed to load image for compression');
+      console.error("Failed to load image");
       resolve(null);
     };
-    
+
     img.src = URL.createObjectURL(file);
   });
 }
 
-// 上传图片到 Supabase Storage
-export async function uploadImage(file: File, path: string): Promise<string | null> {
-  console.log('Uploading image:', file.name, 'size:', (file.size / 1024).toFixed(2), 'KB');
-  
-  // 检查文件大小（5MB 限制）
-  if (file.size > 5 * 1024 * 1024) {
-    console.error('Image file too large. Max size is 5MB');
-    alert('图片文件过大，请压缩至 5MB 以下');
-    return null;
-  }
-
-  // 压缩图片并转换为 Base64
-  console.log('Compressing image for reliable storage');
-  const compressed = await compressImage(file, 1200, 1200, 0.7);
-  
-  if (!compressed) {
-    console.error('Failed to compress image');
-    return null;
-  }
-  
-  // 如果压缩后还是太大 (> 500KB)，进一步压缩
-  if (compressed.length > 500 * 1024) {
-    console.log('Image still too large, compressing further...');
-    return await compressImage(file, 800, 800, 0.5);
-  }
-  
-  return compressed;
+export interface UploadResult {
+  success: boolean;
+  url: string | null;
+  message: string;
 }
 
-// 上传视频到 Supabase Storage
-export async function uploadVideo(file: File): Promise<string | null> {
-  console.log('Uploading video:', file.name, 'size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
-  
+export async function uploadImage(file: File): Promise<UploadResult> {
+  console.log("Uploading image:", file.name);
+
+  if (file.size > 5 * 1024 * 1024) {
+    return {
+      success: false,
+      url: null,
+      message: "图片过大，请压缩至 5MB 以下",
+    };
+  }
+
+  const compressed = await compressImage(file, 1200, 1200, 0.7);
+
+  if (!compressed) {
+    return { success: false, url: null, message: "图片处理失败" };
+  }
+
+  if (compressed.length > 500 * 1024) {
+    const further = await compressImage(file, 800, 800, 0.5);
+    if (further) {
+      return { success: true, url: further, message: "图片已压缩上传" };
+    }
+  }
+
+  return { success: true, url: compressed, message: "图片上传成功" };
+}
+
+export async function uploadVideo(file: File): Promise<UploadResult> {
   if (!isSupabaseConfigured()) {
-    console.warn('Supabase not configured, cannot upload video');
-    return null;
+    return { success: false, url: null, message: "云端未配置，无法上传视频" };
   }
 
-  // 检查文件大小（50MB 限制）
   if (file.size > 50 * 1024 * 1024) {
-    console.error('Video file too large. Max size is 50MB');
-    alert('视频文件过大，请压缩至 50MB 以下');
-    return null;
+    return {
+      success: false,
+      url: null,
+      message: "视频过大，请压缩至 50MB 以下",
+    };
   }
 
-  const fileExt = file.name.split('.').pop();
+  const fileExt = file.name.split(".").pop();
   const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
   const filePath = `videos/${fileName}`;
 
-  console.log('Uploading video to Supabase:', filePath);
-  
-  const { error: uploadError } = await supabase.storage
-    .from('portfolio')
-    .upload(filePath, file, {
-      contentType: file.type,
-      upsert: false
-    });
+  const { success, result: error } = await withRetry(async () => {
+    const { error } = await supabase.storage
+      .from("portfolio")
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+    return error;
+  }, "视频上传");
 
-  if (uploadError) {
-    console.error('Error uploading video:', uploadError);
-    alert('视频上传失败: ' + uploadError.message);
-    return null;
+  if (error) {
+    return {
+      success: false,
+      url: null,
+      message: "视频上传失败：" + error.message,
+    };
   }
 
-  const { data } = supabase.storage.from('portfolio').getPublicUrl(filePath);
-  console.log('Video uploaded successfully, URL:', data.publicUrl);
-  return data.publicUrl;
+  const { data } = supabase.storage.from("portfolio").getPublicUrl(filePath);
+  return { success: true, url: data.publicUrl, message: "视频上传成功" };
 }
 
-// 删除视频
 export async function deleteVideo(url: string): Promise<void> {
-  if (!isSupabaseConfigured() || !url.includes('supabase')) {
+  if (!isSupabaseConfigured() || !url.includes("supabase")) {
     return;
   }
 
   try {
     const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    const bucketIndex = pathParts.indexOf('portfolio');
+    const pathParts = urlObj.pathname.split("/");
+    const bucketIndex = pathParts.indexOf("portfolio");
     if (bucketIndex === -1) return;
-    
-    const filePath = pathParts.slice(bucketIndex + 1).join('/');
-    await supabase.storage.from('portfolio').remove([filePath]);
-    console.log('Video deleted:', filePath);
+
+    const filePath = pathParts.slice(bucketIndex + 1).join("/");
+    await supabase.storage.from("portfolio").remove([filePath]);
   } catch (e) {
-    console.error('Error deleting video:', e);
+    console.error("Delete video error:", e);
   }
 }
 
-// 删除 Storage 中的图片
 export async function deleteImage(url: string): Promise<void> {
-  if (!isSupabaseConfigured() || url.startsWith('data:')) {
-    return; // Base64 图片无需删除
+  if (url.startsWith("data:")) {
+    return;
+  }
+
+  if (!isSupabaseConfigured() || !url.includes("supabase")) {
+    return;
   }
 
   try {
     const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    const bucketIndex = pathParts.indexOf('portfolio');
+    const pathParts = urlObj.pathname.split("/");
+    const bucketIndex = pathParts.indexOf("portfolio");
     if (bucketIndex === -1) return;
-    
-    const filePath = pathParts.slice(bucketIndex + 1).join('/');
-    await supabase.storage.from('portfolio').remove([filePath]);
+
+    const filePath = pathParts.slice(bucketIndex + 1).join("/");
+    await supabase.storage.from("portfolio").remove([filePath]);
   } catch (e) {
-    console.error('Error deleting image:', e);
+    console.error("Delete image error:", e);
   }
+}
+
+export function preloadData(): Promise<void> {
+  return new Promise((resolve) => {
+    console.log("开始预加载数据...");
+
+    const preloadStartTime = performance.now();
+
+    Promise.all([getPersonalInfo(), getProjects()])
+      .then(([infoResult, projectsResult]) => {
+        const preloadEndTime = performance.now();
+        const duration = (preloadEndTime - preloadStartTime).toFixed(2);
+
+        console.log(`预加载完成，耗时 ${duration}ms`);
+        console.log("个人信息:", infoResult.source, infoResult.success);
+        console.log(
+          "项目数据:",
+          projectsResult.source,
+          projectsResult.data.length,
+          "个项目",
+        );
+
+        resolve();
+      })
+      .catch((err) => {
+        console.error("预加载失败:", err);
+        resolve();
+      });
+  });
 }
