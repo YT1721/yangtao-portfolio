@@ -1140,7 +1140,7 @@ const App: React.FC = () => {
                     <div className="border-t border-white/10 pt-4">
                       <div className="flex justify-between items-center mb-3">
                         <span className="text-xs font-bold uppercase text-slate-400">
-                          视频
+                          本地视频
                         </span>
                         <button
                           onClick={() => {
@@ -1153,7 +1153,7 @@ const App: React.FC = () => {
                         </button>
                       </div>
                       {p.localVideoUrl && (
-                        <div className="relative aspect-video bg-black/50 rounded-xl overflow-hidden">
+                        <div className="relative aspect-video bg-black/50 rounded-xl overflow-hidden mb-4">
                           <video
                             src={p.localVideoUrl}
                             className="w-full h-full object-cover"
@@ -1174,6 +1174,82 @@ const App: React.FC = () => {
                           </button>
                         </div>
                       )}
+
+                      <div className="border-t border-white/5 pt-4 mt-4">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-xs font-bold uppercase text-slate-400">
+                            在线视频链接
+                          </span>
+                        </div>
+
+                        <select
+                          value={p.videoPlatform || "other"}
+                          onChange={(e) =>
+                            setProjects(
+                              projects.map((proj) =>
+                                proj.id === p.id
+                                  ? {
+                                      ...proj,
+                                      videoPlatform: e.target.value as any,
+                                    }
+                                  : proj,
+                              ),
+                            )
+                          }
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm focus:border-primary outline-none mb-3"
+                        >
+                          <option value="bilibili">Bilibili</option>
+                          <option value="youtube">YouTube</option>
+                          <option value="other">其他视频平台</option>
+                        </select>
+
+                        <input
+                          value={p.videoUrl || ""}
+                          onChange={(e) =>
+                            setProjects(
+                              projects.map((proj) =>
+                                proj.id === p.id
+                                  ? { ...proj, videoUrl: e.target.value }
+                                  : proj,
+                              ),
+                            )
+                          }
+                          className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm focus:border-primary outline-none mb-2"
+                          placeholder={
+                            p.videoPlatform === "bilibili"
+                              ? "粘贴 Bilibili 视频链接或 BV 号（如 BV1xx...）"
+                              : p.videoPlatform === "youtube"
+                                ? "粘贴 YouTube 视频链接（如 https://www.youtube.com/watch?v=...）"
+                                : "粘贴视频链接"
+                          }
+                        />
+
+                        {p.videoUrl && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-400">
+                              已设置视频链接
+                            </span>
+                            <button
+                              onClick={() =>
+                                setProjects(
+                                  projects.map((proj) =>
+                                    proj.id === p.id
+                                      ? {
+                                          ...proj,
+                                          videoUrl: undefined,
+                                          videoPlatform: undefined,
+                                        }
+                                      : proj,
+                                  ),
+                                )
+                              }
+                              className="text-xs text-red-400 hover:text-red-300 font-bold"
+                            >
+                              清除视频链接
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <button
