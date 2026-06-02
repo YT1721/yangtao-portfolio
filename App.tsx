@@ -156,7 +156,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isLoading || isAdminMode) return;
+    if (isLoading) return;
 
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
@@ -178,7 +178,7 @@ const App: React.FC = () => {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [projects, isLoading, isAdminMode, showSaveNotification]);
+  }, [projects, isLoading, showSaveNotification]);
 
   const handleAuth = () => {
     if (passwordInput === ADMIN_PASSWORD) {
