@@ -59,6 +59,7 @@ const App: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -183,6 +184,7 @@ const App: React.FC = () => {
     if (passwordInput === ADMIN_PASSWORD) {
       localStorage.setItem("yt_admin_auth", "true");
       setIsAdminMode(true);
+      setShowPasswordModal(false);
       setPasswordInput("");
     } else {
       alert("密码错误");
@@ -882,11 +884,56 @@ const App: React.FC = () => {
       </main>
 
       <button
-        onClick={() => setIsAdminMode(true)}
+        onClick={() => setShowPasswordModal(true)}
         className="fixed bottom-10 right-10 size-12 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center text-slate-700 hover:text-primary transition-all z-[100] opacity-10 hover:opacity-100"
       >
         <span className="material-symbols-outlined text-sm">settings</span>
       </button>
+
+      {/* 密码输入弹窗 */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-surface-dark border border-white/10 rounded-3xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-6">
+              进入管理后台
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="请输入密码"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:border-primary focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAuth();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setPasswordInput("");
+                  }}
+                  className="flex-1 px-6 py-3 bg-white/10 rounded-xl text-xs font-bold uppercase hover:bg-white/20 transition-all"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleAuth}
+                  className="flex-1 px-6 py-3 bg-primary rounded-xl text-xs font-bold uppercase hover:bg-primary/80 transition-all"
+                >
+                  确认
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {saveStatus !== "idle" && (
         <div
