@@ -27,6 +27,9 @@ import {
   preloadData,
   LoadResult,
   clearCache,
+  exportAllData,
+  verifyDataIntegrity,
+  getStorageInfo,
 } from "./lib/database";
 
 const ADMIN_PASSWORD = "yangtao666";
@@ -994,6 +997,28 @@ const App: React.FC = () => {
                     ) : (
                       <span className="text-yellow-400 ml-2">● 仅本地存储</span>
                     )}
+                    <span className="text-slate-500 ml-3">|</span>
+                    <button
+                      onClick={() => {
+                        const info = verifyDataIntegrity();
+                        const storage = getStorageInfo();
+                        alert(
+                          `数据完整性检查结果：\n\n` +
+                            `完整性状态：${info.isValid ? "✅ 正常" : "⚠️ 异常"}\n` +
+                            `本地数据：${info.details.localData ? "✅ 存在" : "❌ 缺失"}\n` +
+                            `备份数据：${info.details.backupData ? "✅ 存在" : "❌ 缺失"}\n` +
+                            `云端连接：${info.details.cloudData ? "✅ 已配置" : "❌ 未配置"}\n` +
+                            `上次保存：${info.details.lastSaveTime || "未知"}\n\n` +
+                            `存储使用：${storage.used} KB / ${storage.available} KB (${storage.percentage}%)\n\n` +
+                            (info.isValid
+                              ? "您的数据安全完整。"
+                              : "建议：清除缓存后重新加载数据。"),
+                        );
+                      }}
+                      className="text-xs text-slate-400 hover:text-white ml-3 underline"
+                    >
+                      数据验证
+                    </button>
                   </p>
                 </div>
                 <div className="flex gap-4">
@@ -1005,6 +1030,24 @@ const App: React.FC = () => {
                       save
                     </span>{" "}
                     保存全部
+                  </button>
+                  <button
+                    onClick={() => {
+                      try {
+                        exportAllData();
+                        alert(
+                          "✅ 数据导出成功！\n\n请妥善保存下载的 JSON 文件，这是您的作品备份。",
+                        );
+                      } catch (error) {
+                        alert("导出失败：" + error);
+                      }
+                    }}
+                    className="px-6 py-3 bg-blue-600 rounded-xl text-xs font-bold uppercase hover:bg-blue-500 transition-all flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      download
+                    </span>{" "}
+                    导出数据
                   </button>
                   <button
                     onClick={() => {

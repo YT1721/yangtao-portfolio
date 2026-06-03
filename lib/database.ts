@@ -568,3 +568,123 @@ export function clearCache(): void {
 
   console.log("本地缓存已清除，请刷新页面");
 }
+
+// 计算数据校验和
+function calculateChecksum(data: string): string {
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+}
+
+// 导出所有数据为 JSON 文件
+export function exportAllData(): void {
+  const projects =
+    localStorage.getItem("yt_projects") ||
+    localStorage.getItem("yt_projects_backup");
+  const personalInfo =
+    localStorage.getItem("yt_profile") ||
+    localStorage.getItem("yt_profile_backup");
+
+  const data = {
+    exportTime: new Date().toISOString(),
+    version: "1.0",
+    system: "Yang Tao Creative Portfolio",
+    personalInfo: personalInfo ? JSON.parse(personalInfo) : null,
+    projects: projects ? JSON.parse(projects) : [],
+    statistics: {
+      projectsCount: projects ? JSON.parse(projects).length : 0,
+      localStorageUsed:
+        Math.round(JSON.stringify(localStorage).length / 1024) + " KB",
+    },
+    checksum: calculateChecksum(projects || ""),
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `portfolio-backup-${new Date().toISOString().split("T")[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  console.log(
+    "数据导出成功，包含 " + data.statistics.projectsCount + " 个作品",
+  );
+}
+
+// 验证数据完整性
+export function verifyDataIntegrity(): {
+  isValid: boolean;
+  message: string;
+  details: {
+    localData: boolean;
+    cloudData: boolean;
+    backupData: boolean;
+    lastSaveTime: string | null;
+  };
+} {
+  const localData = localStorage.getItem("yt_projects");
+  const backupData = localStorage.getItem("yt_projects_backup");
+  const savedChecksum = localStorage.getItem("yt_projects_checksum");
+  const lastSaveTime = localStorage.getItem("yt_projects_last_save");
+
+  let isValid = true;
+  let message = "数据完整性正常";
+
+  if (localData && savedChecksum) {
+    const currentChecksum = calculateChecksum(localData);
+    if (currentChecksum !== savedChecksum) {
+      isValid = false;
+      message = "检测到数据可能损坏，正在从备份恢复...";
+    }
+  }
+
+  if (!localData && !backupData) {
+    isValid = false;
+    message = "未找到本地数据，请检查网络连接";
+  }
+
+  return {
+    isValid,
+    message,
+    details: {
+      localData: !!localData,
+      cloudData: isSupabaseConfigured(),
+      backupData: !!backupData,
+      lastSaveTime,
+    },
+  };
+}
+
+// 获取本地存储使用情况
+export function getStorageInfo(): {
+  used: number;
+  available: number;
+  percentage: number;
+} {
+  let total = 0;
+  for (let key in localStorage) {
+    if (localStorage.hasOwnProperty(key)) {
+      total += localStorage[key].length + key.length;
+    }
+  }
+
+  const usedKB = Math.round(total / 1024);
+  const availableKB = 5000; // 假设大多数浏览器至少支持 5MB
+  const percentage = Math.round((usedKB / availableKB) * 100);
+
+  return {
+    used: usedKB,
+    available: availableKB,
+    percentage,
+  };
+}
