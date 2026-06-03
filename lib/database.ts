@@ -150,7 +150,7 @@ export async function saveWithBackup(
   return result;
 }
 
-const CACHE_EXPIRY_HOURS = 24;
+const CACHE_EXPIRY_HOURS = 1; // 缓存有效期改为1小时，减少跨浏览器数据不一致
 
 function isCacheValid(key: string): boolean {
   const expiryKey = `${key}_expiry`;
@@ -549,4 +549,22 @@ export function preloadData(): Promise<void> {
         resolve();
       });
   });
+}
+
+// 清除本地缓存，强制从云端刷新数据
+export function clearCache(): void {
+  const keys = [
+    "yt_profile",
+    "yt_profile_expiry",
+    "yt_profile_backup",
+    "yt_projects",
+    "yt_projects_expiry",
+    "yt_projects_backup",
+  ];
+
+  keys.forEach((key) => {
+    localStorage.removeItem(key);
+  });
+
+  console.log("本地缓存已清除，请刷新页面");
 }

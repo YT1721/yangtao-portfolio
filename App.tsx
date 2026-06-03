@@ -26,6 +26,7 @@ import {
   UploadResult,
   preloadData,
   LoadResult,
+  clearCache,
 } from "./lib/database";
 
 const ADMIN_PASSWORD = "yangtao666";
@@ -971,7 +972,23 @@ const App: React.FC = () => {
                     作品管理后台
                   </h1>
                   <p className="text-slate-400 mt-2">
-                    共 {projects.length} 个作品 |
+                    共 {projects.length} 个作品
+                    {loadingSource && (
+                      <span className="ml-2 text-xs">
+                        | 数据来源:{" "}
+                        <span
+                          className={
+                            loadingSource === "云端"
+                              ? "text-green-400"
+                              : loadingSource === "本地缓存"
+                                ? "text-yellow-400"
+                                : "text-red-400"
+                          }
+                        >
+                          {loadingSource}
+                        </span>
+                      </span>
+                    )}
                     {isSupabaseConfigured() ? (
                       <span className="text-green-400 ml-2">● 云端已连接</span>
                     ) : (
@@ -988,6 +1005,25 @@ const App: React.FC = () => {
                       save
                     </span>{" "}
                     保存全部
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "确定要清除本地缓存吗？这将强制从云端刷新数据。",
+                        )
+                      ) {
+                        clearCache();
+                        alert("本地缓存已清除，页面将重新加载...");
+                        window.location.reload();
+                      }
+                    }}
+                    className="px-6 py-3 bg-yellow-600 rounded-xl text-xs font-bold uppercase hover:bg-yellow-500 transition-all flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      refresh
+                    </span>{" "}
+                    清除缓存
                   </button>
                   <button
                     onClick={handleLogout}
