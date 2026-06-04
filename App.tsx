@@ -172,8 +172,18 @@ const App: React.FC = () => {
       try {
         const result = await saveProjects(projects);
         showSaveNotification(result);
+        if (!result.cloudSaved && !result.localBackup) {
+          alert(
+            "保存失败：" +
+              result.message +
+              "\n\n请检查网络连接或点击'保存全部'重试。",
+          );
+        }
       } catch (error) {
         console.error("Auto-save error:", error);
+        setSaveStatus("error");
+        setSaveMessage("自动保存失败，请手动保存");
+        alert("自动保存出错：" + (error as Error).message);
       }
     }, 2000);
 
