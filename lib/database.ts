@@ -222,37 +222,9 @@ export async function getPersonalInfo(): Promise<
   const localKey = "yt_profile";
   const backupKey = "yt_profile_backup";
 
-  // 优先检查本地数据（无论缓存是否过期）
-  const localData =
-    localStorage.getItem(localKey) || localStorage.getItem(backupKey);
-
-  if (localData) {
-    console.log("使用本地数据");
-    result.data = JSON.parse(localData);
-    result.source = "local";
-    result.success = true;
-    result.message = "已加载本地数据";
-
-    // 后台尝试刷新云端数据
-    setTimeout(async () => {
-      if (isSupabaseConfigured()) {
-        console.log("后台刷新云端数据...");
-        const cloudData = await fetchFromCloud<PersonalInfo>(PERSONAL_INFO_KEY);
-        if (cloudData) {
-          localStorage.setItem(localKey, JSON.stringify(cloudData));
-          setCacheExpiry(localKey);
-          localStorage.setItem(backupKey, JSON.stringify(cloudData));
-          console.log("后台刷新完成");
-        }
-      }
-    }, 100);
-
-    return result;
-  }
-
-  // 本地没有数据，尝试从云端加载
+  // 优先从云端加载最新数据
   if (isSupabaseConfigured()) {
-    console.log("尝试从云端加载数据...");
+    console.log("尝试从云端加载个人信息...");
     const {
       result: cloudData,
       success,
@@ -273,6 +245,19 @@ export async function getPersonalInfo(): Promise<
         retries > 0 ? `已从云端加载（重试 ${retries} 次）` : "已从云端加载";
       return result;
     }
+  }
+
+  // 云端失败或不可用，回退到本地数据
+  const localData =
+    localStorage.getItem(localKey) || localStorage.getItem(backupKey);
+
+  if (localData) {
+    console.log("云端不可用，使用本地数据");
+    result.data = JSON.parse(localData);
+    result.source = "local";
+    result.success = true;
+    result.message = "云端不可用，使用本地数据";
+    return result;
   }
 
   result.message = "无可用数据";
@@ -305,35 +290,7 @@ export async function getProjects(): Promise<LoadResult<Project[]>> {
   const localKey = "yt_projects";
   const backupKey = "yt_projects_backup";
 
-  // 优先检查本地数据（无论缓存是否过期）
-  const localData =
-    localStorage.getItem(localKey) || localStorage.getItem(backupKey);
-
-  if (localData) {
-    console.log("使用本地数据");
-    result.data = JSON.parse(localData);
-    result.source = "local";
-    result.success = true;
-    result.message = "已加载本地数据";
-
-    // 后台尝试刷新云端数据
-    setTimeout(async () => {
-      if (isSupabaseConfigured()) {
-        console.log("后台刷新云端项目数据...");
-        const cloudData = await fetchFromCloud<Project[]>(PROJECTS_KEY);
-        if (cloudData) {
-          localStorage.setItem(localKey, JSON.stringify(cloudData));
-          setCacheExpiry(localKey);
-          localStorage.setItem(backupKey, JSON.stringify(cloudData));
-          console.log("后台刷新完成");
-        }
-      }
-    }, 100);
-
-    return result;
-  }
-
-  // 本地没有数据，尝试从云端加载
+  // 优先从云端加载最新数据
   if (isSupabaseConfigured()) {
     console.log("尝试从云端加载项目数据...");
     const {
@@ -356,6 +313,19 @@ export async function getProjects(): Promise<LoadResult<Project[]>> {
         retries > 0 ? `已从云端加载（重试 ${retries} 次）` : "已从云端加载";
       return result;
     }
+  }
+
+  // 云端失败或不可用，回退到本地数据
+  const localData =
+    localStorage.getItem(localKey) || localStorage.getItem(backupKey);
+
+  if (localData) {
+    console.log("云端不可用，使用本地数据");
+    result.data = JSON.parse(localData);
+    result.source = "local";
+    result.success = true;
+    result.message = "云端不可用，使用本地数据";
+    return result;
   }
 
   result.message = "无可用项目数据";
